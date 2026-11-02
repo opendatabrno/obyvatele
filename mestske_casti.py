@@ -11,7 +11,7 @@ import re
 import pandas as pd
 
 from zpracuj_data import (CISELNE, CISELNIKY, PRAHA, VYSTUP, cislo, je_kod_obce, klic, nacti_excel,
-                          norm, sloupce_cizincu, tabulka_cizincu_novy)
+                          nacti_rok, norm, sloupce_cizincu, tabulka_cizincu_novy)
 
 NEZJISTENO = "nezjištěno"
 
@@ -171,13 +171,15 @@ def zpracuj_mc(soubory, obce):
     radky, nesparovani = [], []
     for rok in sorted(soubory):
         print(f"{rok} MČ ...")
-        ob = nacti_obcany_mc(soubory[rok]["obcane"], nazvy_obci)
-        xl = nacti_excel(soubory[rok]["cizinci"])
-        if any(klic(s) == "obce" for s in xl.sheet_names):
-            mc_soubor = soubory[rok].get("cizinci_mc")  # 2014: MČ v samostatném souboru
-            ciz = nacti_cizince_mc_stary(nacti_excel(mc_soubor) if mc_soubor else xl, nazvy_obci)
-        else:
-            ciz = nacti_cizince_mc_novy(xl, okresy_mest)
+        ob = nacti_rok(rok, "občané – městské části", nacti_obcany_mc, soubory[rok]["obcane"], nazvy_obci)
+
+        def cizinci_mc(cesta, mc_soubor=soubory[rok].get("cizinci_mc")):
+            xl = nacti_excel(cesta)
+            if any(klic(s) == "obce" for s in xl.sheet_names):
+                # 2014: MČ v samostatném souboru
+                return nacti_cizince_mc_stary(nacti_excel(mc_soubor) if mc_soubor else xl, nazvy_obci)
+            return nacti_cizince_mc_novy(xl, okresy_mest)
+        ciz = nacti_rok(rok, "cizinci – městské části", cizinci_mc, soubory[rok]["cizinci"])
         ciz = ciz[ciz.kod_obce.isin(set(ob.kod_obce))]
         ciz = paruj(ciz, ob)
 

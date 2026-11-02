@@ -80,6 +80,37 @@ def cislo(serie):
     return pd.to_numeric(serie, errors="coerce").fillna(0).astype(int)
 
 
+class StrukturaError(Exception):
+    """Soubor MV má strukturu, kterou parser nezná (nový formát, přejmenované sloupce …)."""
+
+
+def popis_struktury(cesta, radku=12):
+    """Listy a začátek každého listu – do chybové zprávy, aby šlo parser rychle upravit."""
+    try:
+        xl = nacti_excel(cesta)
+    except Exception as e:  # noqa: BLE001 – i nečitelný soubor chceme popsat
+        return f"  soubor nejde otevřít: {e}"
+    casti = [f"  listy: {xl.sheet_names}"]
+    for list_ in xl.sheet_names:
+        df = pd.read_excel(xl, sheet_name=list_, header=None, nrows=radku)
+        casti.append(f"  --- list '{list_}' ({df.shape[1]} sloupců), prvních {radku} řádků:")
+        for i, r in df.iterrows():
+            bunky = [str(x).strip() for x in r if pd.notna(x) and str(x).strip()]
+            if bunky:
+                casti.append(f"    {i}: " + " | ".join(bunky)[:220])
+    return "\n".join(casti)
+
+
+def nacti_rok(rok, popis, fn, *args):
+    """Zavolá parser a chybu převede na StrukturaError s popisem souboru."""
+    try:
+        return fn(*args)
+    except Exception as e:
+        cesty = [a for a in args if isinstance(a, Path)]
+        detail = "\n".join(popis_struktury(c) for c in cesty)
+        raise StrukturaError(f"{rok}, {popis}: nerozpoznaná struktura ({type(e).__name__}: {e})\n{detail}") from e
+
+
 # --- občané ČR ---------------------------------------------------------------
 
 def nacti_obcany(cesta):
@@ -239,6 +270,7 @@ def nacti_ciselnik():
 
 def main():
     VYSTUP.mkdir(exist_ok=True)
+    (VYSTUP / "chyba_struktury.txt").unlink(missing_ok=True)
     ciselnik = nacti_ciselnik()
 
     soubory = {}
@@ -250,15 +282,20 @@ def main():
             soubory.setdefault(rok, {})["cizinci"] = p
         elif p.stem.endswith("Cizinci s pobytem - městské části"):
             soubory.setdefault(rok, {})["cizinci_mc"] = p
+    for rok in [r for r, s in soubory.items() if not {"obcane", "cizinci"} <= set(s)]:
+        print(f"  pozor: rok {rok} nemá oba soubory (občané i cizinci), přeskakuji")
+        del soubory[rok]
 
     obcane, cizinci = {}, {}
     kontrola = []
     for rok in sorted(soubory):
         print(f"{rok} ...")
-        obcane[rok] = nacti_obcany(soubory[rok]["obcane"])
+        obcane[rok] = nacti_rok(rok, "občané", nacti_obcany, soubory[rok]["obcane"])
         xl = nacti_excel(soubory[rok]["cizinci"])
         stary = any(klic(s) == "obce" for s in xl.sheet_names)
-        obce, nezjisteno, soucet = (nacti_cizince_stary if stary else nacti_cizince_novy)(xl)
+        obce, nezjisteno, soucet = nacti_rok(
+            rok, "cizinci", lambda c: (nacti_cizince_stary if stary else nacti_cizince_novy)(nacti_excel(c)),
+            soubory[rok]["cizinci"])
         cizinci[rok] = (obce, stary)
         kontrola.append({"rok": rok, "cizinci_soucet_mv": soucet, "cizinci_bez_adresy": nezjisteno})
 
@@ -375,4 +412,11 @@ def main():
 
 
 if __name__ == "__main__":
-    sys.exit(main())
+    try:
+        sys.exit(main())
+    except StrukturaError as e:
+        # GitHub Actions z tohoto souboru založí issue
+        VYSTUP.mkdir(exist_ok=True)
+        (VYSTUP / "chyba_struktury.txt").write_text(str(e), encoding="utf-8")
+        print(f"CHYBA STRUKTURY: {e}", file=sys.stderr)
+        sys.exit(2)

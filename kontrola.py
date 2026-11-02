@@ -6,6 +6,7 @@ zpracuj_data.py, samostatně:
     python kontrola.py
 """
 import html
+import re
 import sys
 from datetime import datetime
 from pathlib import Path
@@ -18,6 +19,9 @@ VYSTUP = ROOT / "vystup"
 # Rozdíly MČ proti obcím, které jsou už v datech MV (viz README); větší se hlásí.
 TOLERANCE_OBCANE = 10
 TOLERANCE_CIZINCI = 500
+# Meziroční změna, nad kterou je nejspíš chyba v načtení (občané se mění o desetiny procenta).
+MAX_ZMENA_OBCANE = 0.03
+MAX_ZMENA_CIZINCI = 0.30
 
 ZLOMY = {2022: "nový formát souboru cizinců (bez kódu obce)",
          2023: "pravděpodobně započtena dočasná ochrana"}
@@ -42,10 +46,14 @@ def vyhodnot_soucty(k):
     k = k.copy()
     k["dopocet"] = k.cizinci_prirazeno_obcim + k.cizinci_bez_adresy + k.cizinci_nesparovano
     k["rozdil"] = k.cizinci_soucet_mv - k.dopocet
+    cizinci = k.cizinci_soucet_mv.fillna(k.dopocet)
+    k["zmena_obcane"] = k.obcane_celkem.pct_change()
+    k["zmena_cizinci"] = cizinci.pct_change()
     k["stav"] = "ok"
     k.loc[k.cizinci_nesparovano > 0, "stav"] = "info"
-    k.loc[k.obce_sparovane_jen_podle_kraje > 0, "stav"] = "varovani"
-    k.loc[k.rozdil.fillna(0) != 0, "stav"] = "chyba"
+    skok_cizinci = (k.zmena_cizinci.abs() > MAX_ZMENA_CIZINCI) & ~k.rok.isin(ZLOMY)
+    k.loc[(k.obce_sparovane_jen_podle_kraje > 0) | skok_cizinci, "stav"] = "varovani"
+    k.loc[(k.rozdil.fillna(0) != 0) | (k.zmena_obcane.abs() > MAX_ZMENA_OBCANE), "stav"] = "chyba"
     return k
 
 
@@ -109,6 +117,13 @@ def nejhorsi(stavy):
     return max(stavy, key=poradi.index) if len(stavy) else "ok"
 
 
+def zmena(x, mez, znamy_zlom=False):
+    if pd.isna(x):
+        return ""
+    trida = "zmena" + (" skok" if abs(x) > mez and not znamy_zlom else "")
+    return f"<span class='{trida}'>{x:+.1%}</span>".replace(".", ",")
+
+
 def tabulka_souctu(k):
     maxi = k.cizinci_soucet_mv.fillna(k.dopocet).max()
     radky = []
@@ -120,8 +135,8 @@ def tabulka_souctu(k):
         mv = cislo(r.cizinci_soucet_mv) if pd.notna(r.cizinci_soucet_mv) else '<span class="tlumene">bez součtu</span>'
         radky.append(
             f"<tr><td class='rok'>{r.rok}{zlom}</td>"
-            f"<td class='c'>{cislo(r.obcane_celkem)}</td>"
-            f"<td class='c'>{mv}</td>"
+            f"<td class='c'>{cislo(r.obcane_celkem)}{zmena(r.zmena_obcane, MAX_ZMENA_OBCANE)}</td>"
+            f"<td class='c'>{mv}{zmena(r.zmena_cizinci, MAX_ZMENA_CIZINCI, r.rok in ZLOMY)}</td>"
             f"<td><div class='pruh' style='width:{sirka:.1f}%'>"
             f"<span class='pruh-a' style='width:{podil:.2f}%'></span></div></td>"
             f"<td class='c'>{cislo(r.cizinci_prirazeno_obcim)}</td>"
@@ -216,6 +231,7 @@ tbody tr:last-child td,tbody tr:last-child th{border-bottom:0}
 .rok{font-weight:600;white-space:nowrap}.zlom-text{display:block;font-weight:400;font-size:12px;color:var(--muted);white-space:normal;max-width:200px}
 .tlumene{color:var(--muted);font-size:12.5px}
 .zvyrazni{color:var(--warn);font-weight:600}
+.zmena{display:block;font-size:12px;color:var(--muted)}.zmena.skok{color:var(--err);font-weight:600}
 .pruh-th{min-width:150px}
 .pruh{height:10px;background:var(--line);border-radius:5px;overflow:hidden;margin-top:6px}
 .pruh-a{display:block;height:100%;background:var(--s-ciz)}
@@ -247,10 +263,12 @@ def main():
     stav_nmc = "varovani" if not nmc.empty else "ok"
 
     chyby_soucty = k[k.stav == "chyba"].rok.tolist()
-    kraj = k[k.obce_sparovane_jen_podle_kraje > 0].rok.tolist()
-    popis_soucty = (f"Nesedí v letech {', '.join(map(str, chyby_soucty))}." if chyby_soucty else
-                    f"Ověř obce spárované jen podle kraje ({', '.join(map(str, kraj))})." if kraj else
-                    "Ve všech letech: přiřazeno + bez adresy + nespárováno = součet MV.")
+    varovani = k[k.stav == "varovani"].rok.tolist()
+    popis_soucty = (f"Nesedí součet nebo podezřelý skok počtu občanů: {', '.join(map(str, chyby_soucty))}."
+                    if chyby_soucty else
+                    f"Ověř ručně (velký skok cizinců nebo párování jen podle kraje): {', '.join(map(str, varovani))}."
+                    if varovani else
+                    "Ve všech letech: přiřazeno + bez adresy + nespárováno = součet MV, bez podezřelých skoků.")
     popis_nesp = (f"{len(nc)} řádků, celkem {cislo(nc.celkem.sum())} osob. Doplň případně "
                   "<code>ciselniky/rucni_parovani.csv</code>." if not nc.empty else "Všechny obce se spárovaly.")
     velke = m[m.stav == "chyba"]
@@ -304,7 +322,24 @@ které vznikají už v souborech MV; červeně větší.</p>
 </main></body></html>"""
     cil = VYSTUP / "kontrola.html"
     cil.write_text(stranka, encoding="utf-8")
-    print(f"Kontrola: {cil}")
+
+    # souhrn pro pull request z GitHub Actions + celkový stav do samostatného souboru
+    celkem = nejhorsi([stav_soucty, stav_nesp, stav_mc, stav_nmc])
+    ikony = {"ok": "✅", "info": "ℹ️", "varovani": "⚠️", "chyba": "❌"}
+    posledni = k.iloc[-1]
+    souhrn = [f"## Kontrola zpracování: {ikony[celkem]} {STAVY[celkem][0]}", "",
+              f"Poslední rok **{posledni.rok}**: občané {cislo(posledni.obcane_celkem)}, "
+              f"cizinci přiřazení obcím {cislo(posledni.cizinci_prirazeno_obcim)}.", "",
+              "| Kontrola | Stav | Detail |", "|---|---|---|"]
+    for nazev, stav, popis in [("Součty cizinců", stav_soucty, popis_soucty),
+                               ("Nespárované obce", stav_nesp, popis_nesp),
+                               ("MČ proti obcím", stav_mc, popis_mc),
+                               ("Nespárované MČ", stav_nmc, popis_nmc)]:
+        popis = re.sub(r"</?code>", "`", popis)
+        souhrn.append(f"| {nazev} | {ikony[stav]} {STAVY[stav][0]} | {popis} |")
+    (VYSTUP / "kontrola_souhrn.md").write_text("\n".join(souhrn) + "\n", encoding="utf-8")
+    (VYSTUP / "kontrola_stav.txt").write_text(celkem, encoding="utf-8")
+    print(f"Kontrola: {STAVY[celkem][0]} -> {cil}")
 
 
 if __name__ == "__main__":
