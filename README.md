@@ -20,7 +20,8 @@ Zdrojem jsou informativní počty obyvatel, které zveřejňuje Ministerstvo vni
 | [`vystup/obyvatele_obce.csv`](vystup/obyvatele_obce.csv) | všechny obce ČR (~6 260) | obec × rok | `rok` + `kod_obce` |
 | [`vystup/obyvatele_mestske_casti.csv`](vystup/obyvatele_mestske_casti.csv) | městské části 8 měst: Praha, Brno, Ostrava, Plzeň, Pardubice, Opava, Liberec, Ústí nad Labem | MČ × rok | `rok` + `kod_mc` |
 
-- Formát: CSV, UTF-8, oddělovač čárka. Při zpracování vzniká lokálně i stejná verze v `.xlsx`.
+- Formát: CSV, UTF-8, oddělovač čárka. Na [webu](https://opendatabrno.github.io/obyvatele/)
+  jsou obě sady ke stažení i jako Excel (`.xlsx`), lokálně vzniká `.xlsx` při zpracování.
 - Kódy obcí a MČ jsou kódy ČSÚ, takže se dají spojit s dalšími daty (např. s hranicemi MČ
   na [data.brno.cz](https://data.brno.cz)).
 - **Řádky obou tabulek nesčítej dohromady.** MČ jsou části měst, která jsou v tabulce obcí
@@ -40,6 +41,7 @@ Zdrojem jsou informativní počty obyvatel, které zveřejňuje Ministerstvo vni
 | `obcane_celkem`, `obcane_muzi`, `obcane_zeny` | občané ČR s trvalým pobytem | obě |
 | `cizinci_celkem`, `cizinci_muzi`, `cizinci_zeny` | cizinci s trvalým nebo přechodným pobytem nad 90 dní | obě |
 | `cizinci_trvaly_pobyt`, `cizinci_prechodny_pobyt` | cizinci podle typu pobytu | obě |
+| `cizinci_docasna_ochrana` | z toho lidé s dočasnou ochranou (od 2023, do 2022 nula) | obě |
 
 **Jak se sloupce sčítají:**
 
@@ -48,15 +50,21 @@ obyvatele_celkem = obcane_celkem + cizinci_celkem
 obcane_celkem    = obcane_muzi + obcane_zeny
 cizinci_celkem   = cizinci_muzi + cizinci_zeny                         (± jednotky osob s neurčeným pohlavím)
 cizinci_celkem   = cizinci_trvaly_pobyt + cizinci_prechodny_pobyt
+cizinci_docasna_ochrana ⊂ cizinci_prechodny_pobyt                      (podmnožina, nepřičítat)
 ```
 
 ## Na co si dát pozor
 
 - **Nejde o oficiální počet obyvatel ČSÚ.** MV započítává cizince s trvalým i přechodným
   pobytem nad 90 dní, proto jsou čísla vyšší.
-- **Zlom v roce 2023:** přechodný pobyt cizinců skočil o ~450 tis., pravděpodobně se začali
-  započítávat lidé s dočasnou ochranou. Pro srovnání v čase ber zvlášť občany a cizince
-  s trvalým pobytem.
+- **Zlom v roce 2023:** MV od tohoto roku započítává do přechodného pobytu cizinců i lidi
+  s dočasnou ochranou (válka na Ukrajině), přechodný pobyt proto skočil o ~450 tis.
+  Jejich počet je ve sloupci `cizinci_docasna_ochrana`; pro srovnání v čase je odečti
+  (`obyvatele_celkem − cizinci_docasna_ochrana`).
+- **Dočasná ochrana je ze samostatného souboru MV** – týdenního snímku po obcích, ne přímo
+  ze souboru cizinců. Bere se snímek nejbližší 1. 1. (datum v
+  [`ciselniky/docasna_ochrana_snimky.csv`](ciselniky/docasna_ochrana_snimky.csv)), takže
+  se od souboru cizinců může o pár dní lišit; v jednotkách obcí je proto vyšší než přechodný pobyt.
 - **Zlom v roce 2022:** soubory cizinců od tohoto roku nemají kód obce, obce se přiřazují
   podle okresu a názvu (viz [Jak se data zpracovávají](#jak-se-data-zpracovávají)).
 - **Cizinci bez adresy** (MV adresu neurčilo, ročně zhruba 1–13 tis. osob) nejsou
@@ -111,10 +119,10 @@ Semafory u čtyř kontrol: zelená = v pořádku, modrá = známý rozdíl, oran
 
 | Kontrola | Co hlídá | Podklad |
 |---|---|---|
-| Součty cizinců | přiřazení obcím + bez adresy + nespárovaní = součet MV; meziroční skok občanů nad 3 % (chyba) a cizinců nad 30 % (varování) | `vystup/kontrola_souctu.csv` |
+| Součty cizinců | přiřazení obcím + bez adresy + nespárovaní = součet MV; meziroční skok občanů nad 3 % (chyba) a cizinců nad 30 % (varování); chybějící snímek dočasné ochrany (varování) | `vystup/kontrola_souctu.csv` |
 | Nespárované obce | řádky cizinců, které se nepřiřadily k obci | `vystup/cizinci_nesparovani.csv` |
 | MČ proti obcím | součet MČ za město proti tabulce obcí | `vystup/kontrola_mc.csv` |
-| Nespárované MČ | MČ cizinců bez kódu | `vystup/mc_nesparovane.csv` (jen když nějaké jsou) |
+| Nespárované MČ | MČ cizinců a dočasné ochrany bez kódu | `vystup/mc_nesparovane.csv` (jen když nějaké jsou) |
 
 **Známé rozdíly, které jsou v pořádku** (vznikají už v souborech MV): u nespárovaných obcí
 Březina (Brno-venkov) a Mezholezy (Domažlice) bez PSČ, desítky osob ročně. U MČ jsou to
@@ -137,6 +145,7 @@ v souboru MV, kód obce) a spusť zpracování znovu.
 | `web.py` | sestavení webu pro GitHub Pages do `_site/` |
 | `ciselniky/pscoco.csv`, `cnumnuts.csv` | číselník obcí s okresy a kraji (volby.gov.cz) |
 | `ciselniky/rucni_parovani.csv` | ruční přiřazení obcí, které se nespárují automaticky |
+| `ciselniky/docasna_ochrana_snimky.csv` | ke kterému dni je použitý snímek dočasné ochrany za každý rok |
 | `vystup/` | výsledné datové sady a kontrolní soubory |
 | `data/` | stažené soubory MV (není v repozitáři) |
 
@@ -150,6 +159,10 @@ v souboru MV, kód obce) a spusť zpracování znovu.
   MV odlišuje „PSČ xxxxx“ v názvu. Tyto varianty se párují podle let 2014–2021, kdy kód
   v souborech byl, nebo podle ručního párování. Název bez PSČ se nehádá.
 - **MČ cizinců** se párují podle názvu na MČ ze souboru občanů téhož roku.
+- **Dočasná ochrana** se bere z týdenních snímků MV „Počty osob s uděleným pobytovým
+  oprávněním v souvislosti s válkou na Ukrajině“ (s kódem obce a názvem MČ). Pro roky
+  2023–2026 jsou snímky pevně dané z archivu MV, pro další roky `stahni_data.py` najde
+  v archivu snímek nejvýš 7 dní od 1. 1.
 - **Okres a kraj** pocházejí z číselníku obcí. Ten se aktualizuje při každém stažení.
 - **Neznámou strukturu souboru** zpracování ohlásí chybou s popisem listů a prvních řádků
   (`vystup/chyba_struktury.txt`), ze které workflow založí issue.

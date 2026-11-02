@@ -35,6 +35,8 @@ SLOUPCE = [
     ("obcane_celkem, obcane_muzi, obcane_zeny", "občané ČR s trvalým pobytem"),
     ("cizinci_celkem, cizinci_muzi, cizinci_zeny", "cizinci s trvalým nebo přechodným pobytem nad 90 dní"),
     ("cizinci_trvaly_pobyt, cizinci_prechodny_pobyt", "cizinci podle typu pobytu (součet = cizinci_celkem)"),
+    ("cizinci_docasna_ochrana", "z toho lidé s dočasnou ochranou (od 2023, část přechodného pobytu; "
+                                "snímek MV nejbližší 1. 1.)"),
 ]
 
 
@@ -56,11 +58,15 @@ def main():
     for soubor, nazev, popis in SADY:
         cesta = VYSTUP / soubor
         shutil.copy(cesta, WEB / soubor)
-        d = pd.read_csv(cesta, usecols=["rok"])
+        # xlsx se v repozitáři neukládá, vzniká tady z CSV
+        d = pd.read_csv(cesta, dtype={"cizinci_docasna_ochrana": "Int64"})
+        xlsx = WEB / cesta.with_suffix(".xlsx").name
+        d.to_excel(xlsx, index=False, freeze_panes=(1, 0))
         karty.append(
             f'<div class="karta ok"><h3>{nazev}</h3><p>{popis}</p>'
-            f'<p class="meta">{d.rok.min()}–{d.rok.max()} · {kontrola.cislo(len(d))} řádků · {velikost(cesta)}</p>'
-            f'<a class="tlacitko" href="{soubor}" download>Stáhnout CSV</a></div>')
+            f'<p class="meta">{d.rok.min()}–{d.rok.max()} · {kontrola.cislo(len(d))} řádků</p>'
+            f'<div class="tlacitka"><a class="tlacitko" href="{soubor}" download>CSV · {velikost(cesta)}</a>'
+            f'<a class="tlacitko druhe" href="{xlsx.name}" download>Excel · {velikost(xlsx)}</a></div></div>')
     sloupce = "".join(f"<tr><td><code>{s}</code></td><td>{p}</td></tr>" for s, p in SLOUPCE)
     stav = (VYSTUP / "kontrola_stav.txt").read_text(encoding="utf-8").strip()
 
@@ -71,6 +77,8 @@ def main():
 .tlacitko{{display:inline-block;margin-top:12px;padding:7px 14px;border-radius:8px;background:var(--accent);
 color:var(--panel);text-decoration:none;font-weight:600;font-size:14px}}
 .tlacitko:hover{{filter:brightness(1.1)}}
+.tlacitka{{display:flex;gap:8px;flex-wrap:wrap}}
+.tlacitko.druhe{{background:transparent;color:var(--accent);box-shadow:inset 0 0 0 1.5px var(--accent)}}
 a{{color:var(--info)}}
 .odkazy{{display:flex;gap:16px;flex-wrap:wrap;margin-top:14px;align-items:center}}
 </style></head><body><main>
@@ -92,7 +100,8 @@ která jsou i v tabulce obcí.</p>
 <h2>Na co si dát pozor</h2>
 <div class="panel"><ul>
 <li>Nejde o oficiální počet obyvatel ČSÚ; MV počítá cizince s trvalým i přechodným pobytem nad 90 dní.</li>
-<li>Od roku 2023 jsou mezi cizinci pravděpodobně i lidé s dočasnou ochranou (skok přechodného pobytu o ~450 tis.).</li>
+<li>Od roku 2023 jsou mezi cizinci s přechodným pobytem i lidé s dočasnou ochranou (skok o ~450 tis.).
+Pro srovnání v čase je odečti: <code>cizinci_celkem − cizinci_docasna_ochrana</code>.</li>
 <li>Od roku 2022 nemají soubory cizinců kód obce, přiřazuje se podle okresu a názvu obce.</li>
 <li>Cizinci, u kterých MV neurčilo adresu nebo městskou část, jsou mimo obce, resp. v řádku „nezjištěno“.</li>
 </ul></div>

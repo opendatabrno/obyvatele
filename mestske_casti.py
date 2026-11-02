@@ -11,7 +11,7 @@ import re
 import pandas as pd
 
 from zpracuj_data import (CISELNE, CISELNIKY, PRAHA, VYSTUP, cislo, je_kod_obce, klic, nacti_excel,
-                          nacti_rok, norm, sloupce_cizincu, tabulka_cizincu_novy)
+                          nacti_rok, norm, sloupce_cizincu, sloupec_docasne_ochrany, tabulka_cizincu_novy)
 
 NEZJISTENO = "nezjištěno"
 
@@ -158,8 +158,9 @@ def paruj(ciz, ob):
     return ciz
 
 
-def zpracuj_mc(soubory, obce):
-    """soubory: {rok: {"obcane": cesta, "cizinci": cesta}}, obce: hotová tabulka obcí."""
+def zpracuj_mc(soubory, obce, docasna):
+    """soubory: {rok: {"obcane": cesta, "cizinci": cesta}}, obce: hotová tabulka obcí,
+    docasna: {rok: snímek dočasné ochrany} z zpracuj_data."""
     nazvy_obci = {}
     okresy_mest = {}
     mesta = set(mesta_mc().values()) | {PRAHA}
@@ -185,7 +186,19 @@ def zpracuj_mc(soubory, obce):
 
         chybi = ciz[(ciz.mc != NEZJISTENO) & ciz.kod_mc.isna()]
         if len(chybi):
-            nesparovani.append(chybi.assign(rok=rok)[["rok", "kod_obce", "mc", "celkem"]])
+            nesparovani.append(chybi.assign(rok=rok, zdroj="cizinci")[["rok", "zdroj", "kod_obce", "mc", "celkem"]])
+
+        # dočasná ochrana po MČ: obec_mc ze snímku MV, párování stejně jako u cizinců
+        do = docasna.get(rok)
+        do_mc = None
+        if do is not None:
+            d = do[do.kod_obce.isin(set(ob.kod_obce))].rename(columns={"obec_mc": "mc"})
+            d = paruj(d.assign(kod_obce=d.kod_obce.astype(int), mc=d.mc.astype(str).str.strip()), ob)
+            chybi_do = d[d.kod_mc.isna()]
+            if len(chybi_do):
+                nesparovani.append(chybi_do.assign(rok=rok, zdroj="docasna_ochrana")[
+                    ["rok", "zdroj", "kod_obce", "mc", "celkem"]])
+            do_mc = d.groupby(["kod_obce", d.kod_mc.fillna(0).astype(int)]).celkem.sum()
         # nespárované MČ jdou do "nezjištěno", ať sedí součet za město
         ciz.loc[ciz.kod_mc.isna(), "mc"] = NEZJISTENO
 
@@ -205,6 +218,8 @@ def zpracuj_mc(soubory, obce):
         t.loc[t.kod_mc == 0, ["kod_mc", "nazev_mc"]] = [None, NEZJISTENO]
         cisla = [c for c in t.columns if c.startswith(("obcane_", "cizinci_"))]
         t[cisla] = t[cisla].fillna(0).astype(int)
+        klice = pd.Series(list(zip(t.kod_obce, t.kod_mc.fillna(0).astype(int))), index=t.index)
+        t["cizinci_docasna_ochrana"] = sloupec_docasne_ochrany(rok, do, klice, do_mc)
         t.insert(0, "rok", rok)
         radky.append(t)
 
@@ -217,7 +232,7 @@ def zpracuj_mc(soubory, obce):
               "obyvatele_celkem",
               "obcane_celkem", "obcane_muzi", "obcane_zeny",
               "cizinci_celkem", "cizinci_muzi", "cizinci_zeny",
-              "cizinci_trvaly_pobyt", "cizinci_prechodny_pobyt"]
+              "cizinci_trvaly_pobyt", "cizinci_prechodny_pobyt", "cizinci_docasna_ochrana"]
     vysledek = vysledek[poradi].sort_values(["rok", "kod_obce", "kod_mc"], na_position="last")
     vysledek.to_csv(VYSTUP / "obyvatele_mestske_casti.csv", index=False, encoding="utf-8-sig")
     vysledek.to_excel(VYSTUP / "obyvatele_mestske_casti.xlsx", index=False, freeze_panes=(1, 0))

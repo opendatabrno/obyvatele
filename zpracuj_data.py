@@ -26,6 +26,7 @@ CISELNIKY = ROOT / "ciselniky"
 VYSTUP = ROOT / "vystup"
 
 PRAHA = 554782
+PRVNI_ROK_DO = 2023  # dočasná ochrana (od 3/2022) je v souborech cizinců od stavu k 1. 1. 2023
 
 
 def bez_diakritiky(text):
@@ -252,6 +253,25 @@ def nacti_cizince_novy(xl):
     return obce, nezjisteno, soucet
 
 
+# --- dočasná ochrana (týdenní snímek MV po obcích) ---------------------------
+
+def nacti_docasnou_ochranu(cesta):
+    """Řádky kraj/okres/obec/kod_obce/obec_mc/celkem…; bez kódu obce = adresa neurčena."""
+    df = pd.read_excel(nacti_excel(cesta), sheet_name=0)
+    df.columns = [klic(c) for c in df.columns]
+    chybi = {"kod_obce", "obec_mc", "celkem"} - set(df.columns)
+    assert not chybi, f"chybí sloupce {chybi}"
+    kod = pd.to_numeric(df.kod_obce, errors="coerce")
+    return pd.DataFrame({"kod_obce": kod.astype("Int64"), "obec_mc": df.obec_mc, "celkem": cislo(df.celkem)})
+
+
+def sloupec_docasne_ochrany(rok, do, klice, mapovani):
+    """Hodnoty sloupce cizinci_docasna_ochrana: 0 před rokem 2023, NA když snímek chybí."""
+    if do is None:
+        return pd.Series(0 if rok < PRVNI_ROK_DO else pd.NA, index=klice.index, dtype="Int64")
+    return klice.map(mapovani).fillna(0).astype("Int64")
+
+
 # --- číselníky ---------------------------------------------------------------
 
 def nacti_ciselnik():
@@ -282,11 +302,13 @@ def main():
             soubory.setdefault(rok, {})["cizinci"] = p
         elif p.stem.endswith("Cizinci s pobytem - městské části"):
             soubory.setdefault(rok, {})["cizinci_mc"] = p
+        elif p.stem.endswith("Dočasná ochrana"):
+            soubory.setdefault(rok, {})["docasna_ochrana"] = p
     for rok in [r for r, s in soubory.items() if not {"obcane", "cizinci"} <= set(s)]:
         print(f"  pozor: rok {rok} nemá oba soubory (občané i cizinci), přeskakuji")
         del soubory[rok]
 
-    obcane, cizinci = {}, {}
+    obcane, cizinci, docasna = {}, {}, {}
     kontrola = []
     for rok in sorted(soubory):
         print(f"{rok} ...")
@@ -297,6 +319,10 @@ def main():
             rok, "cizinci", lambda c: (nacti_cizince_stary if stary else nacti_cizince_novy)(nacti_excel(c)),
             soubory[rok]["cizinci"])
         cizinci[rok] = (obce, stary)
+        if "docasna_ochrana" in soubory[rok]:
+            docasna[rok] = nacti_rok(rok, "dočasná ochrana", nacti_docasnou_ochranu, soubory[rok]["docasna_ochrana"])
+        elif rok >= PRVNI_ROK_DO:
+            print(f"  pozor: rok {rok} nemá snímek dočasné ochrany, sloupec zůstane prázdný")
         kontrola.append({"rok": rok, "cizinci_soucet_mv": soucet, "cizinci_bez_adresy": nezjisteno})
 
     # slovník (okres, název) -> kód obce: číselník voleb + historické soubory cizinců s kódy
@@ -363,6 +389,11 @@ def main():
         t["nazev_obce"] = t.nazev_obce.fillna(t.kod_obce.map(nazvy))
         cisla = [c for c in t.columns if c.startswith(("obcane_", "cizinci_"))]
         t[cisla] = t[cisla].fillna(0).astype(int)
+        do = docasna.get(rok)
+        do_obce = do.dropna(subset=["kod_obce"]).groupby("kod_obce").celkem.sum() if do is not None else None
+        t["cizinci_docasna_ochrana"] = sloupec_docasne_ochrany(rok, do, t.kod_obce, do_obce)
+        if do_obce is not None and set(do_obce.index) - set(t.kod_obce):
+            print(f"  pozor: dočasná ochrana v obcích mimo tabulku: {sorted(set(do_obce.index) - set(t.kod_obce))}")
         t.insert(0, "rok", rok)
         radky.append(t)
 
@@ -372,6 +403,11 @@ def main():
             "cizinci_prirazeno_obcim": int(ciz.cizinci_celkem.sum()),
             "cizinci_nesparovano": int(sum(c.celkem.sum() for c in nesparovani if c.rok.iat[0] == rok)),
             "obce_sparovane_jen_podle_kraje": 0 if stary else len(podle_kraje),
+            "docasna_ochrana_celkem": int(do.celkem.sum()) if do is not None else None,
+            "docasna_ochrana_bez_obce": int(do[do.kod_obce.isna()].celkem.sum()) if do is not None else None,
+            # snímek DO je z jiného dne než soubor cizinců, jednotky obcí s DO > přechodný pobyt jsou běžné
+            "obce_docasna_ochrana_nad_prechodnym": (
+                int((t.cizinci_docasna_ochrana > t.cizinci_prechodny_pobyt).sum()) if do is not None else None),
         })
 
     vysledek = pd.concat(radky, ignore_index=True)
@@ -389,7 +425,7 @@ def main():
               "obyvatele_celkem",
               "obcane_celkem", "obcane_muzi", "obcane_zeny",
               "cizinci_celkem", "cizinci_muzi", "cizinci_zeny",
-              "cizinci_trvaly_pobyt", "cizinci_prechodny_pobyt"]
+              "cizinci_trvaly_pobyt", "cizinci_prechodny_pobyt", "cizinci_docasna_ochrana"]
     vysledek = vysledek[poradi].sort_values(["rok", "kod_obce"])
 
     vysledek.to_csv(VYSTUP / "obyvatele_obce.csv", index=False, encoding="utf-8-sig")
@@ -405,7 +441,7 @@ def main():
     print(f"Hotovo: {len(vysledek)} řádků -> {VYSTUP / 'obyvatele_obce.csv'}")
 
     from mestske_casti import zpracuj_mc
-    zpracuj_mc(soubory, vysledek)
+    zpracuj_mc(soubory, vysledek, docasna)
 
     import kontrola
     kontrola.main()

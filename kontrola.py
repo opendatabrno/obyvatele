@@ -24,7 +24,8 @@ MAX_ZMENA_OBCANE = 0.03
 MAX_ZMENA_CIZINCI = 0.30
 
 ZLOMY = {2022: "nový formát souboru cizinců (bez kódu obce)",
-         2023: "pravděpodobně započtena dočasná ochrana"}
+         2023: "nově započtena dočasná ochrana (sloupec cizinci_docasna_ochrana)"}
+PRVNI_ROK_DO = 2023
 
 
 def cislo(x):
@@ -52,7 +53,8 @@ def vyhodnot_soucty(k):
     k["stav"] = "ok"
     k.loc[k.cizinci_nesparovano > 0, "stav"] = "info"
     skok_cizinci = (k.zmena_cizinci.abs() > MAX_ZMENA_CIZINCI) & ~k.rok.isin(ZLOMY)
-    k.loc[(k.obce_sparovane_jen_podle_kraje > 0) | skok_cizinci, "stav"] = "varovani"
+    chybi_do = (k.rok >= PRVNI_ROK_DO) & k.docasna_ochrana_celkem.isna()
+    k.loc[(k.obce_sparovane_jen_podle_kraje > 0) | skok_cizinci | chybi_do, "stav"] = "varovani"
     k.loc[(k.rozdil.fillna(0) != 0) | (k.zmena_obcane.abs() > MAX_ZMENA_OBCANE), "stav"] = "chyba"
     return k
 
@@ -124,6 +126,22 @@ def zmena(x, mez, znamy_zlom=False):
     return f"<span class='{trida}'>{x:+.1%}</span>".replace(".", ",")
 
 
+def snimky_do():
+    cesta = ROOT / "ciselniky" / "docasna_ochrana_snimky.csv"
+    return pd.read_csv(cesta).set_index("rok").stav_k if cesta.exists() else pd.Series(dtype=str)
+
+
+def bunka_do(r):
+    """Počet osob s dočasnou ochranou a datum snímku MV."""
+    if r.rok < PRVNI_ROK_DO:
+        return '<span class="tlumene">–</span>'
+    if pd.isna(r.docasna_ochrana_celkem):
+        return '<span class="zvyrazni">chybí snímek</span>'
+    datum = SNIMKY.get(r.rok)
+    datum = f"<span class='zmena'>k {pd.Timestamp(datum):%d. %m. %Y}</span>" if datum else ""
+    return f"{cislo(r.docasna_ochrana_celkem)}{datum}"
+
+
 def tabulka_souctu(k):
     maxi = k.cizinci_soucet_mv.fillna(k.dopocet).max()
     radky = []
@@ -143,10 +161,12 @@ def tabulka_souctu(k):
             f"<td class='c'>{cislo(r.cizinci_bez_adresy)}</td>"
             f"<td class='c{' zvyrazni' if r.cizinci_nesparovano else ''}'>{cislo(r.cizinci_nesparovano)}</td>"
             f"<td class='c{' zvyrazni' if r.obce_sparovane_jen_podle_kraje else ''}'>{cislo(r.obce_sparovane_jen_podle_kraje)}</td>"
+            f"<td class='c'>{bunka_do(r)}</td>"
             f"<td>{odznak(r.stav)}</td></tr>")
     return ("<div class='tab-obal'><table><thead><tr><th>Rok</th><th class='c'>Občané</th>"
             "<th class='c'>Cizinci (MV)</th><th class='pruh-th'>Přiřazeno obcím</th><th class='c'>Přiřazeno</th>"
             "<th class='c'>Bez adresy</th><th class='c'>Nespárováno</th><th class='c'>Jen podle kraje</th>"
+            "<th class='c'>Dočasná ochrana</th>"
             "<th>Stav</th></tr></thead><tbody>" + "".join(radky) + "</tbody></table></div>")
 
 
@@ -248,6 +268,8 @@ footer{margin-top:48px;color:var(--muted);font-size:13px}
 
 
 def main():
+    global SNIMKY
+    SNIMKY = snimky_do()
     k = nacti("kontrola_souctu.csv")
     if k.empty:
         print("Chybí vystup/kontrola_souctu.csv – nejdřív spusť zpracuj_data.py")
@@ -263,10 +285,10 @@ def main():
     stav_nmc = "varovani" if not nmc.empty else "ok"
 
     chyby_soucty = k[k.stav == "chyba"].rok.tolist()
-    varovani = k[k.stav == "varovani"].rok.tolist()
+    varovani = k[k.stav == "varovani"].rok.tolist()  # skok cizinců, párování podle kraje, chybějící snímek DO
     popis_soucty = (f"Nesedí součet nebo podezřelý skok počtu občanů: {', '.join(map(str, chyby_soucty))}."
                     if chyby_soucty else
-                    f"Ověř ručně (velký skok cizinců nebo párování jen podle kraje): {', '.join(map(str, varovani))}."
+                    f"Ověř ručně (skok cizinců, párování jen podle kraje nebo chybí snímek dočasné ochrany): {', '.join(map(str, varovani))}."
                     if varovani else
                     "Ve všech letech: přiřazeno + bez adresy + nespárováno = součet MV, bez podezřelých skoků.")
     popis_nesp = (f"{len(nc)} řádků, celkem {cislo(nc.celkem.sum())} osob. Doplň případně "
