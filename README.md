@@ -29,11 +29,11 @@ Jeden řádek = obec × rok, klíč `rok` + `kod_obce` (kód obce ČSÚ).
 |---|---|
 | `kod_obce`, `nazev_obce`, `orp` | obec podle souboru občanů |
 | `kod_okresu`, `okres`, `kod_kraje`, `kraj` | podle aktuálního číselníku (NUTS/LAU) |
-| `obyvatele_celkem`, `obyvatele_deti_0_14` | občané + cizinci |
-| `obcane_*` | občané ČR: celkem, muži, ženy, děti 0–14 |
-| `cizinci_*` | cizinci s pobytem: celkem, muži, ženy, děti 0–14, trvalý a přechodný pobyt |
+| `obyvatele_celkem` | občané + cizinci |
+| `obcane_*` | občané ČR: celkem, muži, ženy |
+| `cizinci_*` | cizinci s pobytem: celkem, muži, ženy, trvalý a přechodný pobyt |
 
-Děti 0–14 = celkem − osoby 15+.
+MV uvádí ještě počty osob starších 15 let; ty do výstupu nepřebíráme.
 
 ## Výstup `vystup/obyvatele_mestske_casti.csv` (UTF-8) a `.xlsx`
 

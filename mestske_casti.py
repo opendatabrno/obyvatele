@@ -66,7 +66,6 @@ def nacti_obcany_mc(cesta, nazvy_obci):
         "obcane_celkem": d.celkem,
         "obcane_muzi": d.m,
         "obcane_zeny": d.z,
-        "obcane_deti_0_14": d.celkem - d.c15,
     })
 
 
@@ -191,7 +190,6 @@ def zpracuj_mc(soubory, obce):
         g = ciz.groupby(["kod_obce", ciz.kod_mc.fillna(0).astype(int)])[CISELNE].sum()
         g = pd.DataFrame({
             "cizinci_celkem": g.celkem, "cizinci_muzi": g.muzi, "cizinci_zeny": g.zeny,
-            "cizinci_deti_0_14": g.muzi_deti + g.zeny_deti,
             "cizinci_trvaly_pobyt": g.trvaly, "cizinci_prechodny_pobyt": g.prechodny,
         }).reset_index()
         # město bez cizinců po MČ (Opava 2015–2021 v listu "krajských měst" chybí):
@@ -213,11 +211,10 @@ def zpracuj_mc(soubory, obce):
     nazvy = obce.drop_duplicates("kod_obce").set_index("kod_obce").nazev_obce
     vysledek.insert(2, "nazev_obce", vysledek.kod_obce.map(nazvy))
     vysledek["obyvatele_celkem"] = vysledek.obcane_celkem + vysledek.cizinci_celkem
-    vysledek["obyvatele_deti_0_14"] = vysledek.obcane_deti_0_14 + vysledek.cizinci_deti_0_14
     poradi = ["rok", "kod_obce", "nazev_obce", "spravni_obvod", "kod_mc", "nazev_mc",
-              "obyvatele_celkem", "obyvatele_deti_0_14",
-              "obcane_celkem", "obcane_muzi", "obcane_zeny", "obcane_deti_0_14",
-              "cizinci_celkem", "cizinci_muzi", "cizinci_zeny", "cizinci_deti_0_14",
+              "obyvatele_celkem",
+              "obcane_celkem", "obcane_muzi", "obcane_zeny",
+              "cizinci_celkem", "cizinci_muzi", "cizinci_zeny",
               "cizinci_trvaly_pobyt", "cizinci_prechodny_pobyt"]
     vysledek = vysledek[poradi].sort_values(["rok", "kod_obce", "kod_mc"], na_position="last")
     vysledek.to_csv(VYSTUP / "obyvatele_mestske_casti.csv", index=False, encoding="utf-8-sig")

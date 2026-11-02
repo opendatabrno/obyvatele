@@ -107,7 +107,6 @@ def nacti_obcany(cesta):
         "obcane_celkem": d.celkem,
         "obcane_muzi": d.m,
         "obcane_zeny": d.z,
-        "obcane_deti_0_14": d.celkem - d.c15,
     })
 
 
@@ -315,7 +314,6 @@ def main():
                                          "trvaly", "prechodny"]].sum()
         ciz = pd.DataFrame({
             "cizinci_celkem": ciz.celkem, "cizinci_muzi": ciz.muzi, "cizinci_zeny": ciz.zeny,
-            "cizinci_deti_0_14": ciz.muzi_deti + ciz.zeny_deti,
             "cizinci_trvaly_pobyt": ciz.trvaly, "cizinci_prechodny_pobyt": ciz.prechodny,
         })
         mimo = set(ciz.index) - set(ob.kod_obce)
@@ -349,12 +347,11 @@ def main():
     vysledek.loc[chybi_kraj, "kod_kraje"] = vysledek.kraj_mv[chybi_kraj].map(norm_kraj).map(kraje.kod_kraje)
     vysledek.loc[chybi_kraj, "kraj"] = vysledek.kraj_mv[chybi_kraj].map(norm_kraj).map(kraje.kraj)
     vysledek["obyvatele_celkem"] = vysledek.obcane_celkem + vysledek.cizinci_celkem
-    vysledek["obyvatele_deti_0_14"] = vysledek.obcane_deti_0_14 + vysledek.cizinci_deti_0_14
 
     poradi = ["rok", "kod_obce", "nazev_obce", "orp", "kod_okresu", "okres", "kod_kraje", "kraj",
-              "obyvatele_celkem", "obyvatele_deti_0_14",
-              "obcane_celkem", "obcane_muzi", "obcane_zeny", "obcane_deti_0_14",
-              "cizinci_celkem", "cizinci_muzi", "cizinci_zeny", "cizinci_deti_0_14",
+              "obyvatele_celkem",
+              "obcane_celkem", "obcane_muzi", "obcane_zeny",
+              "cizinci_celkem", "cizinci_muzi", "cizinci_zeny",
               "cizinci_trvaly_pobyt", "cizinci_prechodny_pobyt"]
     vysledek = vysledek[poradi].sort_values(["rok", "kod_obce"])
 
