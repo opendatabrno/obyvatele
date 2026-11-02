@@ -18,8 +18,11 @@ python zpracuj_data.py
 `stahni_data.py` najde na aktuální stránce MV lednové soubory nového roku (podle
 „01-01-RRRR“ v odkazu) a uloží je do `data/`. Soubor můžeš stáhnout i ručně a uložit
 jako `data/RRRR-01 Čeští občané.xlsx` a `data/RRRR-01 Cizinci s pobytem.xlsx`.
-Pak zkontroluj `vystup/kontrola_souctu.csv`, `vystup/cizinci_nesparovani.csv`
-a u městských částí `vystup/kontrola_mc.csv` a `vystup/mc_nesparovane.csv`.
+Pak otevři v prohlížeči `vystup/kontrola.html`. Je to přehled všech kontrol se semafory:
+součty cizinců proti souborům MV, nespárované obce a MČ a rozdíly MČ proti obcím. Stránka se
+vygeneruje na konci `zpracuj_data.py`, samostatně `python kontrola.py`. Podkladem jsou
+`vystup/kontrola_souctu.csv`, `vystup/cizinci_nesparovani.csv`, `vystup/kontrola_mc.csv`
+a `vystup/mc_nesparovane.csv`.
 
 ## Výstup `vystup/obyvatele_obce.csv` (UTF-8) a `.xlsx`
 

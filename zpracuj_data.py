@@ -370,6 +370,9 @@ def main():
     from mestske_casti import zpracuj_mc
     zpracuj_mc(soubory, vysledek)
 
+    import kontrola
+    kontrola.main()
+
 
 if __name__ == "__main__":
     sys.exit(main())

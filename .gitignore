@@ -6,3 +6,5 @@ __pycache__/
 /data/
 # xlsx kopie výstupů, v repu jsou jen CSV
 /vystup/*.xlsx
+# přehled kontrol generuje kontrola.py
+/vystup/kontrola.html
