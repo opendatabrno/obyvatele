@@ -1,6 +1,6 @@
 """Zpracování lednových souborů MV ČR do jedné tabulky obyvatel podle obcí.
 
-Vstup:  Data/YYYY-01 Čeští občané.xls(x), Data/YYYY-01 Cizinci s pobytem.xls(x)
+Vstup:  data/YYYY-01 Čeští občané.xls(x), data/YYYY-01 Cizinci s pobytem.xls(x)
         ciselniky/pscoco.csv, ciselniky/cnumnuts.csv (stahni_data.py)
 Výstup: vystup/obyvatele_obce.csv a .xlsx  – jeden řádek = obec × rok
         vystup/kontrola_souctu.csv         – součty za rok proti souborům MV
@@ -21,7 +21,7 @@ from pathlib import Path
 import pandas as pd
 
 ROOT = Path(__file__).resolve().parent
-DATA = ROOT / "Data"
+DATA = ROOT / "data"
 CISELNIKY = ROOT / "ciselniky"
 VYSTUP = ROOT / "vystup"
 

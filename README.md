@@ -8,7 +8,7 @@ počtů obyvatel, které zveřejňuje MV ČR:
 ## Každoroční aktualizace
 
 Poprvé nainstaluj knihovny (`pip install -r requirements.txt`). Zdrojové Excely MV
-nejsou v repozitáři, `stahni_data.py` je stáhne do `Data/`.
+nejsou v repozitáři, `stahni_data.py` je stáhne do `data/`.
 
 ```bash
 python stahni_data.py
@@ -16,8 +16,8 @@ python zpracuj_data.py
 ```
 
 `stahni_data.py` najde na aktuální stránce MV lednové soubory nového roku (podle
-„01-01-RRRR“ v odkazu) a uloží je do `Data/`. Soubor můžeš stáhnout i ručně a uložit
-jako `Data/RRRR-01 Čeští občané.xlsx` a `Data/RRRR-01 Cizinci s pobytem.xlsx`.
+„01-01-RRRR“ v odkazu) a uloží je do `data/`. Soubor můžeš stáhnout i ručně a uložit
+jako `data/RRRR-01 Čeští občané.xlsx` a `data/RRRR-01 Cizinci s pobytem.xlsx`.
 Pak zkontroluj `vystup/kontrola_souctu.csv`, `vystup/cizinci_nesparovani.csv`
 a u městských částí `vystup/kontrola_mc.csv` a `vystup/mc_nesparovane.csv`.
 

@@ -1,6 +1,6 @@
 """Stažení lednových souborů MV ČR s informativními počty obyvatel v obcích.
 
-Ukládá do složky Data/ pod jednotnými názvy:
+Ukládá do složky data/ pod jednotnými názvy:
     YYYY-01 Čeští občané.xlsx
     YYYY-01 Cizinci s pobytem.xlsx
 Už stažené soubory přeskočí (pokud nepoužiješ --prepsat).
@@ -23,7 +23,7 @@ from pathlib import Path
 import requests
 
 ROOT = Path(__file__).resolve().parent
-DATA = ROOT / "Data"
+DATA = ROOT / "data"
 CISELNIKY = ROOT / "ciselniky"
 
 AKTUALNI = "https://mv.gov.cz/informativni-pocty-obyvatel-v-obcich-2"
