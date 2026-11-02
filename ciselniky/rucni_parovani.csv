@@ -1,0 +1,4 @@
+# Ruční přiřazení kódu obce řádkům ze souborů cizinců, které se nespárovaly automaticky.
+# Doplň řádek, když se obec objeví ve vystup/cizinci_nesparovani.csv (okres a obec přesně jako v souboru MV).
+okres,obec,kod_obce
+Domažlice,Mezholezy PSČ 34506,553921

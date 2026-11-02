@@ -1,0 +1,9 @@
+__pycache__/
+*.pyc
+~$*
+
+# zdrojová data MV stahuje stahni_data.py
+/Data/
+/data/
+# xlsx kopie výstupů, v repu jsou jen CSV
+/vystup/*.xlsx
