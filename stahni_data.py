@@ -167,7 +167,8 @@ def stahni_ciselniky():
     for jmeno in ("pscoco.csv", "cnumnuts.csv"):
         r = requests.get(VOLBY + jmeno, headers=HLAVICKY, timeout=60)
         r.raise_for_status()
-        (CISELNIKY / jmeno).write_bytes(r.content)
+        # volby.gov.cz posílá CRLF; v repozitáři je LF, jinak by každý běh na Linuxu hlásil změnu
+        (CISELNIKY / jmeno).write_bytes(r.content.replace(b"\r\n", b"\n"))
     print("  číselníky obcí a okresů aktualizovány")
 
 
