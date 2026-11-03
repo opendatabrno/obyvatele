@@ -38,6 +38,8 @@ Zdrojem jsou informativní počty obyvatel, které zveřejňuje Ministerstvo vni
 | `spravni_obvod` | správní obvod Prahy (Praha 1–22), jinde prázdné | MČ |
 | `kod_mc`, `nazev_mc` | kód ČSÚ a název MČ; řádek `nezjištěno` = cizinci bez určené MČ | MČ |
 | `obyvatele_celkem` | občané ČR + cizinci | obě |
+| `obyvatele_csu` | oficiální počet obyvatel ČSÚ k 1. 1.; prázdné, dokud ho ČSÚ nezveřejní (v květnu) | obce |
+| `odhad_csu` | `obyvatele_csu`, a kde ještě chybí, odhad z dat MV (viz níže) | obce |
 | `obcane_celkem`, `obcane_muzi`, `obcane_zeny` | občané ČR s trvalým pobytem | obě |
 | `cizinci_celkem`, `cizinci_muzi`, `cizinci_zeny` | cizinci s trvalým nebo přechodným pobytem nad 90 dní | obě |
 | `cizinci_trvaly_pobyt`, `cizinci_prechodny_pobyt` | cizinci podle typu pobytu | obě |
@@ -52,6 +54,26 @@ cizinci_celkem   = cizinci_muzi + cizinci_zeny                         (± jedno
 cizinci_celkem   = cizinci_trvaly_pobyt + cizinci_prechodny_pobyt
 cizinci_docasna_ochrana ⊂ cizinci_prechodny_pobyt                      (podmnožina, nepřičítat)
 ```
+
+### Oficiální počet obyvatel (ČSÚ) a jeho odhad
+
+MV je výpis z registrů a počty nadhodnocuje (2026 o 3,4 % proti ČSÚ), hlavně o občany
+s trvalým pobytem v ČR, kteří tu nežijí. Oficiální je počet ČSÚ, který vychází ze sčítání
+a bilance obyvatel. Tabulka obcí ho má ve sloupci `obyvatele_csu` (sada
+[OBY02A](https://data.csu.gov.cz/datastat/info/SADA/OBY02A)).
+
+ČSÚ zveřejňuje stav k 1. 1. až v květnu, MV už v lednu. Do té doby obsahuje `odhad_csu`
+odhad z dat MV s koeficientem obce z posledního roku, kdy ČSÚ data má:
+
+```
+koeficient = (obyvatele_csu − cizinci_celkem) / obcane_celkem      (poslední rok s ČSÚ)
+odhad_csu  = koeficient × obcane_celkem + cizinci_celkem             (nový rok)
+```
+
+Mimo roky se zlomem v datech se odhad liší od pozdějšího čísla ČSÚ v mediánu o 0,04–0,07 %
+a u 97–98 % obcí o méně než 1 %. Podrobnosti jsou v
+[analyza/POROVNANI_CSU.md](analyza/POROVNANI_CSU.md). Jakmile ČSÚ data zveřejní,
+`odhad_csu` = `obyvatele_csu`.
 
 ## Na co si dát pozor
 

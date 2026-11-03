@@ -104,15 +104,15 @@ vlastní.
 - **Pro členění na občany a cizince, městské části a nejčerstvější stav** používej **MV**.
   Mysli přitom na to, že občané jsou v MV nadhodnocení zhruba o 4 %, ve velkých městech
   až o 10 %.
-- **Pro počty ve stylu ČSÚ hned v lednu** použij odhad s koeficientem obce. Šel by
-  přidat do hlavní tabulky jako sloupec `odhad_csu` (viz níže).
+- **Pro počty ve stylu ČSÚ hned v lednu** použij odhad s koeficientem obce, sloupec
+  `odhad_csu` v hlavní tabulce obcí.
 - **Pro čistou časovou řadu přes rok 2023** odečti dočasnou ochranu. Přes rok 2021
   pozor na přepočet ČSÚ podle sčítání.
 
 ## Další možné kroky
 
-- Sloupec `odhad_csu` v `vystup/obyvatele_obce.csv`. Pro roky, kdy ČSÚ data má, by
-  obsahoval počet ČSÚ, pro nejnovější rok odhad s koeficientem.
+- ~~Sloupec `odhad_csu` v `vystup/obyvatele_obce.csv`~~: hotovo, tabulka obcí má sloupce
+  `obyvatele_csu` (oficiální počet) a `odhad_csu` (počet ČSÚ, jinak odhad s koeficientem).
 - Stejné srovnání pro městské části. ČSÚ je v sadě OBY02A uvádí jen do roku 2022.
 
 ## Spuštění

@@ -131,6 +131,15 @@ def snimky_do():
     return pd.read_csv(cesta).set_index("rok").stav_k if cesta.exists() else pd.Series(dtype=str)
 
 
+def bunka_csu(r):
+    """Oficiální počet obyvatel ČSÚ za ČR, nebo odhad z dat MV, dokud ho ČSÚ nezveřejní."""
+    if pd.notna(getattr(r, "obyvatele_csu", None)):
+        return cislo(r.obyvatele_csu)
+    if pd.notna(getattr(r, "odhad_csu", None)):
+        return f"<span class='zvyrazni'>{cislo(r.odhad_csu)}</span><span class='zmena'>odhad</span>"
+    return '<span class="tlumene">–</span>'
+
+
 def bunka_do(r):
     """Počet osob s dočasnou ochranou a datum snímku MV."""
     if r.rok < PRVNI_ROK_DO:
@@ -162,11 +171,12 @@ def tabulka_souctu(k):
             f"<td class='c{' zvyrazni' if r.cizinci_nesparovano else ''}'>{cislo(r.cizinci_nesparovano)}</td>"
             f"<td class='c{' zvyrazni' if r.obce_sparovane_jen_podle_kraje else ''}'>{cislo(r.obce_sparovane_jen_podle_kraje)}</td>"
             f"<td class='c'>{bunka_do(r)}</td>"
+            f"<td class='c'>{bunka_csu(r)}</td>"
             f"<td>{odznak(r.stav)}</td></tr>")
     return ("<div class='tab-obal'><table><thead><tr><th>Rok</th><th class='c'>Občané</th>"
             "<th class='c'>Cizinci (MV)</th><th class='pruh-th'>Přiřazeno obcím</th><th class='c'>Přiřazeno</th>"
             "<th class='c'>Bez adresy</th><th class='c'>Nespárováno</th><th class='c'>Jen podle kraje</th>"
-            "<th class='c'>Dočasná ochrana</th>"
+            "<th class='c'>Dočasná ochrana</th><th class='c'>ČSÚ</th>"
             "<th>Stav</th></tr></thead><tbody>" + "".join(radky) + "</tbody></table></div>")
 
 

@@ -272,6 +272,31 @@ def sloupec_docasne_ochrany(rok, do, klice, mapovani):
     return klice.map(mapovani).fillna(0).astype("Int64")
 
 
+# --- ČSÚ ----------------------------------------------------------------------
+
+def pridej_odhad_csu(t):
+    """Sloupce obyvatele_csu (oficiální počet ČSÚ) a odhad_csu.
+
+    odhad_csu = počet ČSÚ, a kde ještě není (MV zveřejní data v lednu, ČSÚ až v květnu),
+    odhad z dat MV s koeficientem obce z posledního roku, kdy ČSÚ data má:
+        koeficient = (ČSÚ − cizinci_celkem) / obcane_celkem
+        odhad      = koeficient × obcane_celkem + cizinci_celkem
+    Medián chyby odhadu je ~0,05 % (viz analyza/POROVNANI_CSU.md).
+    """
+    cesta = DATA / "csu" / "pocet_obyvatel_obce.csv"
+    if not cesta.exists():
+        print("  pozor: chybí data ČSÚ (data/csu/), sloupce obyvatele_csu a odhad_csu zůstanou prázdné")
+        return t.assign(obyvatele_csu=pd.Series(pd.NA, index=t.index, dtype="Int64"),
+                        odhad_csu=pd.Series(pd.NA, index=t.index, dtype="Int64"))
+    t = t.merge(pd.read_csv(cesta), on=["rok", "kod_obce"], how="left").sort_values(["kod_obce", "rok"])
+    koef = (t.obyvatele_csu - t.cizinci_celkem) / t.obcane_celkem.where(t.obcane_celkem > 0)
+    koef = koef.groupby(t.kod_obce).ffill()  # v letech bez ČSÚ platí poslední známý koeficient obce
+    odhad = (koef * t.obcane_celkem + t.cizinci_celkem).round()
+    t["odhad_csu"] = t.obyvatele_csu.fillna(odhad).astype("Int64")
+    t["obyvatele_csu"] = t.obyvatele_csu.astype("Int64")
+    return t
+
+
 # --- číselníky ---------------------------------------------------------------
 
 def nacti_ciselnik():
@@ -420,9 +445,14 @@ def main():
     vysledek.loc[chybi_kraj, "kod_kraje"] = vysledek.kraj_mv[chybi_kraj].map(norm_kraj).map(kraje.kod_kraje)
     vysledek.loc[chybi_kraj, "kraj"] = vysledek.kraj_mv[chybi_kraj].map(norm_kraj).map(kraje.kraj)
     vysledek["obyvatele_celkem"] = vysledek.obcane_celkem + vysledek.cizinci_celkem
+    vysledek = pridej_odhad_csu(vysledek)
+    for k in kontrola:
+        r = vysledek[vysledek.rok == k["rok"]]
+        k["obyvatele_csu"] = int(r.obyvatele_csu.sum()) if r.obyvatele_csu.notna().any() else None
+        k["odhad_csu"] = int(r.odhad_csu.sum()) if r.odhad_csu.notna().any() else None
 
     poradi = ["rok", "kod_obce", "nazev_obce", "orp", "kod_okresu", "okres", "kod_kraje", "kraj",
-              "obyvatele_celkem",
+              "obyvatele_celkem", "obyvatele_csu", "odhad_csu",
               "obcane_celkem", "obcane_muzi", "obcane_zeny",
               "cizinci_celkem", "cizinci_muzi", "cizinci_zeny",
               "cizinci_trvaly_pobyt", "cizinci_prechodny_pobyt", "cizinci_docasna_ochrana"]

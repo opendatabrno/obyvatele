@@ -14,6 +14,7 @@ Zdroje:
     1. lednu (2023–2026 pevně z archivu, další roky hledáním v archivu MV)
     a jeho datum se zapíše do ciselniky/docasna_ochrana_snimky.csv
   - číselník obcí s vazbou na okresy (volby.gov.cz) -> ciselniky/
+  - oficiální počet obyvatel obcí od ČSÚ (sada OBY02A) -> data/csu/
 
 Použití:
     python stahni_data.py            # vše, co chybí
@@ -23,6 +24,7 @@ import argparse
 import csv
 import re
 import sys
+import time
 from datetime import date, timedelta
 from pathlib import Path
 
@@ -62,6 +64,11 @@ DO_ARCHIV = {
 DO_STRANKY = ["https://mv.gov.cz/statistika-v-souvislosti-s-valkou-na-ukrajine---archiv-{rok}", AKTUALNI]
 DO_MAX_ODCHYLKA = 7  # dní od 1. 1.
 DO_SNIMKY = CISELNIKY / "docasna_ochrana_snimky.csv"
+
+CSU_URL = "https://data.csu.gov.cz/opendata/sady/OBY02A/distribuce/csv"
+CSU = DATA / "csu" / "OBY02A.csv"
+CSU_OBCE = DATA / "csu" / "pocet_obyvatel_obce.csv"
+CSU_MAX_STARI = 30  # dní
 
 HLAVICKY = {"User-Agent": "Mozilla/5.0 (data-obyvatele)"}
 
@@ -140,7 +147,7 @@ def zapis_snimek(rok, stav_k, url):
             radky = {int(r["rok"]): r for r in csv.DictReader(f)}
     radky[rok] = {"rok": rok, "stav_k": stav_k, "url": url}
     with DO_SNIMKY.open("w", encoding="utf-8", newline="") as f:
-        w = csv.DictWriter(f, fieldnames=["rok", "stav_k", "url"])
+        w = csv.DictWriter(f, fieldnames=["rok", "stav_k", "url"], lineterminator="\n")
         w.writeheader()
         w.writerows(radky[r] for r in sorted(radky))
 
@@ -172,6 +179,43 @@ def stahni_ciselniky():
     print("  číselníky obcí a okresů aktualizovány")
 
 
+def stahni_csu(prepsat):
+    """Oficiální počet obyvatel obcí k 1. 1. od ČSÚ (sada OBY02A, ~200 MB).
+
+    Celá sada se drží v data/csu/OBY02A.csv a obnovuje se po CSU_MAX_STARI dnech
+    (ČSÚ ji aktualizuje jednou ročně v květnu). Pro zpracování se z ní vytáhne
+    malý soubor data/csu/pocet_obyvatel_obce.csv (rok, kod_obce, obyvatele_csu).
+    Když ČSÚ neodpovídá, zůstane stará verze, případně se sloupce ČSÚ nevyplní.
+    """
+    CSU.parent.mkdir(parents=True, exist_ok=True)
+    stara = not CSU.exists() or (time.time() - CSU.stat().st_mtime) > CSU_MAX_STARI * 86400
+    if prepsat or stara:
+        docasny = CSU.with_suffix(".stahuje")
+        try:
+            with requests.get(CSU_URL, headers=HLAVICKY, stream=True, timeout=600) as r:
+                r.raise_for_status()
+                with docasny.open("wb") as f:
+                    for kus in r.iter_content(1 << 20):
+                        f.write(kus)
+            docasny.replace(CSU)
+            print(f"  staženo {CSU.name} ({CSU.stat().st_size // 1_000_000} MB)")
+        except requests.RequestException as e:
+            docasny.unlink(missing_ok=True)
+            print(f"  pozor: ČSÚ se nepodařilo stáhnout ({e})" + (", použije se stará verze" if CSU.exists() else ""))
+    else:
+        print(f"  {CSU.name} je čerstvé")
+    if not CSU.exists():
+        return
+    if prepsat or stara or not CSU_OBCE.exists() or CSU_OBCE.stat().st_mtime < CSU.stat().st_mtime:
+        import pandas as pd
+        d = pd.read_csv(CSU, dtype=str, usecols=["IndicatorType", "POHL2", "Roky", "UZ01234596C", "Hodnota"])
+        # počet obyvatel k 1. 1., celkem; obce mají šestimístný kód (do 2022 jsou v sadě i MČ)
+        d = d[(d.IndicatorType == "2406P") & (d.POHL2 == "0") & d.UZ01234596C.str.fullmatch(r"\d{6}")]
+        pd.DataFrame({"rok": d.Roky, "kod_obce": d.UZ01234596C, "obyvatele_csu": d.Hodnota}).to_csv(
+            CSU_OBCE, index=False)
+        print(f"  {CSU_OBCE.name}: roky {d.Roky.min()}–{d.Roky.max()}")
+
+
 def main():
     ap = argparse.ArgumentParser()
     ap.add_argument("--prepsat", action="store_true", help="stáhnout i soubory, které už existují")
@@ -195,6 +239,9 @@ def main():
 
     print("Číselníky:")
     stahni_ciselniky()
+
+    print("ČSÚ:")
+    stahni_csu(args.prepsat)
 
 
 if __name__ == "__main__":
