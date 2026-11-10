@@ -39,7 +39,9 @@ Zdrojem jsou informativní počty obyvatel, které zveřejňuje Ministerstvo vni
 | `kod_mc`, `nazev_mc` | kód ČSÚ a název MČ; řádek `nezjištěno` = cizinci bez určené MČ | MČ |
 | `obyvatele_celkem` | občané ČR + cizinci | obě |
 | `obyvatele_csu` | oficiální počet obyvatel ČSÚ k 1. 1.; prázdné, dokud ho ČSÚ nezveřejní (v květnu) | obce |
-| `odhad_csu` | `obyvatele_csu`, a kde ještě chybí, odhad z dat MV (viz níže) | obce |
+| `odhad_csu` | obce: `obyvatele_csu`, a kde ještě chybí, odhad z dat MV; MČ: `odhad_csu` města rozdělený podle Sčítání 2021 (viz níže) | obě |
+| `obyvatele_scitani_2021` | obyvatelé MČ s obvyklým pobytem podle Sčítání 2021 (26. 3. 2021), ve všech letech stejné | MČ |
+| `koef_obcane` | podíl občanů z registru MV, kteří v MČ podle Sčítání 2021 opravdu bydlí | MČ |
 | `obcane_celkem`, `obcane_muzi`, `obcane_zeny` | občané ČR s trvalým pobytem | obě |
 | `cizinci_celkem`, `cizinci_muzi`, `cizinci_zeny` | cizinci s trvalým nebo přechodným pobytem nad 90 dní | obě |
 | `cizinci_trvaly_pobyt`, `cizinci_prechodny_pobyt` | cizinci podle typu pobytu | obě |
@@ -74,6 +76,23 @@ Mimo roky se zlomem v datech se odhad liší od pozdějšího čísla ČSÚ v me
 a u 97–98 % obcí o méně než 1 %. Podrobnosti jsou v
 [analyza/POROVNANI_CSU.md](analyza/POROVNANI_CSU.md). Jakmile ČSÚ data zveřejní,
 `odhad_csu` = `obyvatele_csu`.
+
+**Městské části:** ČSÚ roční počty obyvatel MČ nevydává, proto se použije Sčítání 2021
+(sada [SLDZOB01](https://data.csu.gov.cz/datastat/info/SADA/SLDZOB01), obyvatelé
+s obvyklým pobytem, uložené v `ciselniky/scitani_2021_mc.csv`):
+
+```
+koef_obcane = (obyvatele_scitani_2021 − cizinci_celkem 2021) / obcane_celkem 2021
+vaha MČ     = koef_obcane × obcane_celkem + cizinci_celkem
+odhad_csu   = odhad_csu města rozdělený mezi MČ podle vah          (součet MČ = město)
+```
+
+Koeficient pod 1 znamená, že v MČ je v registru víc občanů, než kolik jich tam bydlí.
+Nejvýrazněji Praha 1 (0,69) a Brno-střed (0,74): v Brně-střed má trvalý pobyt asi 23 tis.
+občanů, kteří tam nežijí. Pravděpodobně jde o lidi s trvalým pobytem na adrese úřadu
+a o občany žijící v zahraničí (např. zapsané ve zvláštní matrice v Brně); z dat MV je
+od sebe rozlišit nejde. Koeficient nad 1 mají MČ, kde bydlí
+lidé s trvalým pobytem jinde. U MČ bez údaje ze sčítání se použije koeficient města.
 
 ## Na co si dát pozor
 

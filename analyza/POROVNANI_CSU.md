@@ -113,7 +113,9 @@ vlastní.
 
 - ~~Sloupec `odhad_csu` v `vystup/obyvatele_obce.csv`~~: hotovo, tabulka obcí má sloupce
   `obyvatele_csu` (oficiální počet) a `odhad_csu` (počet ČSÚ, jinak odhad s koeficientem).
-- Stejné srovnání pro městské části. ČSÚ je v sadě OBY02A uvádí jen do roku 2022.
+- ~~Odhad pro městské části~~: hotovo. OBY02A má MČ jen pro Prahu, proto tabulka MČ
+  používá Sčítání 2021 (sloupce `obyvatele_scitani_2021`, `koef_obcane`, `odhad_csu`,
+  viz README).
 
 ## Spuštění
 

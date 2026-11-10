@@ -158,6 +158,44 @@ def paruj(ciz, ob):
     return ciz
 
 
+def rozdel_celek(vahy, celek):
+    """Rozdělí celé číslo celek podle vah na celá čísla se stejným součtem (největší zbytky)."""
+    if pd.isna(celek) or vahy.sum() <= 0:
+        return pd.Series(pd.NA, index=vahy.index, dtype="Int64")
+    podil = vahy / vahy.sum() * int(celek)
+    zaklad = podil.apply(int)
+    zbytek = int(celek) - zaklad.sum()
+    zaklad[(podil - zaklad).sort_values(ascending=False).index[:zbytek]] += 1
+    return zaklad.astype("Int64")
+
+
+def pridej_odhad_csu_mc(t, obce):
+    """Odhad počtu obyvatel MČ ve stylu ČSÚ.
+
+    ČSÚ nevydává roční počty obyvatel MČ (kromě Prahy), proto se použije Sčítání 2021:
+    koef_obcane = (obyvatelé MČ podle sčítání − cizinci MV 2021) / občané MV 2021
+    říká, jaký podíl občanů z registru v MČ opravdu bydlí. Váha MČ je
+    koef_obcane × občané + cizinci a počet obyvatel města (odhad_csu z tabulky obcí)
+    se rozdělí podle vah, takže součet MČ sedí na číslo za město.
+    """
+    sc = pd.read_csv(CISELNIKY / "scitani_2021_mc.csv")[["kod_mc", "obyvatele_scitani_2021"]]
+    t = t.drop(columns=[c for c in ("obyvatele_scitani_2021",) if c in t]).merge(sc, on="kod_mc", how="left")
+    t["obyvatele_scitani_2021"] = t.obyvatele_scitani_2021.astype("Int64")
+    zaklad = t[t.rok == 2021].set_index("kod_mc")
+    koef = (zaklad.obyvatele_scitani_2021 - zaklad.cizinci_celkem) / zaklad.obcane_celkem.where(zaklad.obcane_celkem > 0)
+    t["koef_obcane"] = t.kod_mc.map(koef.dropna()).astype(float)
+    # MČ bez údaje ze sčítání (změna hranic, chybějící rok 2021): koeficient celého města
+    koef_mesta = (zaklad.groupby("kod_obce").obyvatele_scitani_2021.sum()
+                  - zaklad.groupby("kod_obce").cizinci_celkem.sum()) / zaklad.groupby("kod_obce").obcane_celkem.sum()
+    t["koef_obcane"] = t.koef_obcane.fillna(t.kod_obce.map(koef_mesta).where(t.kod_mc.notna())).round(4)
+    vaha = (t.koef_obcane.fillna(1) * t.obcane_celkem + t.cizinci_celkem).clip(lower=0)
+    celky = obce.set_index(["rok", "kod_obce"]).odhad_csu
+    t["odhad_csu"] = pd.Series(pd.NA, index=t.index, dtype="Int64")
+    for (rok, kod), idx in t.groupby(["rok", "kod_obce"]).groups.items():
+        t.loc[idx, "odhad_csu"] = rozdel_celek(vaha[idx], celky.get((rok, kod), pd.NA))
+    return t
+
+
 def zpracuj_mc(soubory, obce, docasna):
     """soubory: {rok: {"obcane": cesta, "cizinci": cesta}}, obce: hotová tabulka obcí,
     docasna: {rok: snímek dočasné ochrany} z zpracuj_data."""
@@ -228,8 +266,9 @@ def zpracuj_mc(soubory, obce, docasna):
     nazvy = obce.drop_duplicates("kod_obce").set_index("kod_obce").nazev_obce
     vysledek.insert(2, "nazev_obce", vysledek.kod_obce.map(nazvy))
     vysledek["obyvatele_celkem"] = vysledek.obcane_celkem + vysledek.cizinci_celkem
+    vysledek = pridej_odhad_csu_mc(vysledek, obce)
     poradi = ["rok", "kod_obce", "nazev_obce", "spravni_obvod", "kod_mc", "nazev_mc",
-              "obyvatele_celkem",
+              "obyvatele_celkem", "obyvatele_scitani_2021", "koef_obcane", "odhad_csu",
               "obcane_celkem", "obcane_muzi", "obcane_zeny",
               "cizinci_celkem", "cizinci_muzi", "cizinci_zeny",
               "cizinci_trvaly_pobyt", "cizinci_prechodny_pobyt", "cizinci_docasna_ochrana"]

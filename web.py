@@ -33,7 +33,10 @@ SLOUPCE = [
     ("spravni_obvod, kod_mc, nazev_mc", "jen MČ: správní obvod (Praha), kód a název MČ"),
     ("obyvatele_celkem", "občané ČR + cizinci s pobytem"),
     ("obyvatele_csu", "jen obce: oficiální počet obyvatel ČSÚ k 1. 1. (prázdné, dokud ho ČSÚ nezveřejní)"),
-    ("odhad_csu", "jen obce: počet ČSÚ, a pro rok, který ČSÚ ještě nezveřejnil, odhad z dat MV"),
+    ("odhad_csu", "obce: počet ČSÚ, a pro rok, který ČSÚ ještě nezveřejnil, odhad z dat MV; "
+                  "MČ: odhad_csu města rozdělený na MČ podle Sčítání 2021"),
+    ("obyvatele_scitani_2021, koef_obcane", "jen MČ: obyvatelé podle Sčítání 2021 (obvyklý pobyt) a podíl "
+                                            "občanů z registru MV, kteří v MČ podle sčítání opravdu bydlí"),
     ("obcane_celkem, obcane_muzi, obcane_zeny", "občané ČR s trvalým pobytem"),
     ("cizinci_celkem, cizinci_muzi, cizinci_zeny", "cizinci s trvalým nebo přechodným pobytem nad 90 dní"),
     ("cizinci_trvaly_pobyt, cizinci_prechodny_pobyt", "cizinci podle typu pobytu (součet = cizinci_celkem)"),

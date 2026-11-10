@@ -69,6 +69,10 @@ CSU_URL = "https://data.csu.gov.cz/opendata/sady/OBY02A/distribuce/csv"
 CSU = DATA / "csu" / "OBY02A.csv"
 CSU_OBCE = DATA / "csu" / "pocet_obyvatel_obce.csv"
 CSU_MAX_STARI = 30  # dní
+# Sčítání 2021, počet obyvatel s obvyklým pobytem po MČ (sada SLDZOB01) – neměnná data,
+# proto se drží v repozitáři v číselnících
+SCITANI_URL = "https://data.csu.gov.cz/opendata/sady/SLDZOB01/distribuce/csv"
+SCITANI_MC = CISELNIKY / "scitani_2021_mc.csv"
 
 HLAVICKY = {"User-Agent": "Mozilla/5.0 (data-obyvatele)"}
 
@@ -216,6 +220,28 @@ def stahni_csu(prepsat):
         print(f"  {CSU_OBCE.name}: roky {d.Roky.min()}–{d.Roky.max()}")
 
 
+def stahni_scitani(prepsat):
+    """Obyvatelé s obvyklým pobytem po MČ ze Sčítání 2021 -> ciselniky/scitani_2021_mc.csv."""
+    if SCITANI_MC.exists() and not prepsat:
+        print(f"  {SCITANI_MC.name} existuje")
+        return
+    import io
+
+    import pandas as pd
+    try:
+        r = requests.get(SCITANI_URL, headers=HLAVICKY, timeout=300)
+        r.raise_for_status()
+    except requests.RequestException as e:
+        print(f"  pozor: Sčítání 2021 se nepodařilo stáhnout ({e})")
+        return
+    d = pd.read_csv(io.BytesIO(r.content), dtype=str)
+    d = d[(d.IndicatorType == "3162SLDB") & (d.POHL3 == "0") & d["UZ02456H.MOMC"].notna()]
+    out = pd.DataFrame({"kod_obce": d["UZ02456H.OBEC"], "kod_mc": d["UZ02456H.MOMC"],
+                        "nazev_mc": d.iloc[:, 14], "obyvatele_scitani_2021": d.Hodnota.astype(int)})
+    out.sort_values(["kod_obce", "kod_mc"]).to_csv(SCITANI_MC, index=False, lineterminator="\n")
+    print(f"  {SCITANI_MC.name}: {len(out)} MČ")
+
+
 def main():
     ap = argparse.ArgumentParser()
     ap.add_argument("--prepsat", action="store_true", help="stáhnout i soubory, které už existují")
@@ -242,6 +268,7 @@ def main():
 
     print("ČSÚ:")
     stahni_csu(args.prepsat)
+    stahni_scitani(args.prepsat)
 
 
 if __name__ == "__main__":
