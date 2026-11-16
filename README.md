@@ -72,7 +72,7 @@ koeficient = (obyvatele_csu − cizinci_celkem) / obcane_celkem      (poslední 
 odhad_csu  = koeficient × obcane_celkem + cizinci_celkem             (nový rok)
 ```
 
-Mimo roky se zlomem v datech se odhad liší od pozdějšího čísla ČSÚ v mediánu o 0,04–0,07 %
+Mimo roky se zlomem v datech se odhad od roku 2015 liší od pozdějšího čísla ČSÚ v mediánu o 0,04–0,07 % (v letech 2006–2012 o 0,1–0,35 %)
 a u 97–98 % obcí o méně než 1 %. Podrobnosti jsou v
 [analyza/POROVNANI_CSU.md](analyza/POROVNANI_CSU.md). Jakmile ČSÚ data zveřejní,
 `odhad_csu` = `obyvatele_csu`.

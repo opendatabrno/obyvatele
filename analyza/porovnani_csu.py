@@ -23,7 +23,10 @@ CSU_URL = "https://data.csu.gov.cz/opendata/sady/OBY02A/distribuce/csv"
 VYSTUP = Path(__file__).resolve().parent / "vystup"
 
 # roky, kdy se mění metodika nebo základ (k těm se koeficient z minulého roku nehodí)
-ZLOMY = {2021: "ČSÚ přepočítal počty podle Sčítání 2021",
+ZLOMY = {2005: "cizinci se do evidence MV teprve doplňovali (2004 jen 53 tis.)",
+         2011: "ČSÚ přepočítal počty podle Sčítání 2011",
+         2013: "cizinci MV z nového zdroje, o 45 tis. méně",
+         2021: "ČSÚ přepočítal počty podle Sčítání 2021",
          2023: "dočasná ochrana poprvé v datech MV i ČSÚ",
          2024: "ČSÚ a MV se srovnávají v započtení dočasné ochrany"}
 
