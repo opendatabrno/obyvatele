@@ -23,7 +23,10 @@ TOLERANCE_CIZINCI = 500
 MAX_ZMENA_OBCANE = 0.03
 MAX_ZMENA_CIZINCI = 0.30
 
-ZLOMY = {2022: "nový formát souboru cizinců (bez kódu obce)",
+ZLOMY = {2005: "cizinci se do evidence zaváděli postupně, k 1. 1. 2004 jich v ní byla jen část",
+         2007: "soubory s kódem obce ČSÚ (do 2006 jen názvy obcí)",
+         2013: "cizinci z nového zdroje (Ředitelství služby cizinecké policie), poprvé podle typu pobytu",
+         2022: "nový formát souboru cizinců (bez kódu obce)",
          2023: "nově započtena dočasná ochrana (sloupec cizinci_docasna_ochrana)"}
 PRVNI_ROK_DO = 2023
 

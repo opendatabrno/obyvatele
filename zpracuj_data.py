@@ -272,6 +272,36 @@ def sloupec_docasne_ochrany(rok, do, klice, mapovani):
     return klice.map(mapovani).fillna(0).astype("Int64")
 
 
+# --- roky 2004–2013 (historie.py) ------------------------------------------
+
+HISTORIE = ROOT / "historie"
+
+
+def nacti_historii(roky_souboru):
+    """Obce a kontrolní součty let, která nejsou v data/ (jednorázově očištěné soubory 2004–2013).
+
+    Cizinci podle typu pobytu jsou až od 2013, do té doby zůstanou sloupce prázdné.
+    """
+    cesta = HISTORIE / "obce_2004_2013.csv"
+    if not cesta.exists():
+        return None, []
+    h = pd.read_csv(cesta)
+    h = h[~h.rok.isin(roky_souboru)]
+    h = h[["rok", "kod_obce", "nazev_obce", "obcane_celkem", "obcane_muzi", "obcane_zeny",
+           "cizinci_celkem", "cizinci_muzi", "cizinci_zeny",
+           "cizinci_trvaly_pobyt", "cizinci_prechodny_pobyt"]].copy()
+    h["cizinci_docasna_ochrana"] = 0
+    k = pd.read_csv(HISTORIE / "kontrola_2004_2013.csv")
+    k = k[~k.rok.isin(roky_souboru)]
+    kontrola = [{
+        "rok": int(r.rok), "cizinci_soucet_mv": int(r.cizinci_soubor),
+        "cizinci_bez_adresy": 0 if pd.isna(r.cizinci_bez_obce) else int(r.cizinci_bez_obce),
+        "obcane_celkem": int(r.obcane_tabulka), "cizinci_prirazeno_obcim": int(r.cizinci_tabulka),
+        "cizinci_nesparovano": int(r.cizinci_nesparovano), "obce_sparovane_jen_podle_kraje": 0,
+    } for r in k.itertuples()]
+    return h, kontrola
+
+
 # --- ČSÚ ----------------------------------------------------------------------
 
 def pridej_odhad_csu(t):
@@ -435,7 +465,15 @@ def main():
                 int((t.cizinci_docasna_ochrana > t.cizinci_prechodny_pobyt).sum()) if do is not None else None),
         })
 
+    historie, kontrola_historie = nacti_historii(set(soubory))
+    if historie is not None and len(historie):
+        print(f"roky {historie.rok.min()}–{historie.rok.max()} z historie/ ({len(historie)} řádků)")
+        radky.insert(0, historie)
+        kontrola = kontrola_historie + kontrola
+
     vysledek = pd.concat(radky, ignore_index=True)
+    cisla = [c for c in vysledek.columns if c.startswith(("obcane_", "cizinci_"))]
+    vysledek[cisla] = vysledek[cisla].astype("Int64")
     popis = ["nazev_obce", "orp", "kraj_mv"]
     vysledek[popis] = vysledek.groupby("kod_obce")[popis].transform(lambda s: s.ffill().bfill())
     vysledek = vysledek.merge(ciselnik.drop(columns="nazev_cis"), on="kod_obce", how="left")

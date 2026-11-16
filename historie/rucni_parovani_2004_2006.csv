@@ -1,0 +1,7 @@
+# Ruční přiřazení kódu obce řádkům souborů MV 2004–2006 (bez kódu), které se nespárovaly automaticky.
+# okres a obec přesně jako v souboru MV; kód podle ČSÚ (obec mezitím přejmenovaná nebo zaniklá).
+okres,obec,kod_obce
+CHOMUTOV,LOUČNÁ,546518
+HAVLÍČKŮV BROD,HORNÍ POHLEĎ,573591
+PARDUBICE,HOSTOVICE,575020
+PÍSEK,NOVOSEDLY,562301

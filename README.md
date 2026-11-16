@@ -1,6 +1,6 @@
 # Obyvatelé obcí ČR
 
-Počty obyvatel obcí a městských částí ČR za roky 2014–2026, vždy k 1. lednu.
+Počty obyvatel obcí ČR za roky 2004–2026 a městských částí za roky 2007–2026, vždy k 1. lednu.
 Zdrojem jsou informativní počty obyvatel, které zveřejňuje Ministerstvo vnitra ČR.
 
 - **Web s daty ke stažení:** https://opendatabrno.github.io/obyvatele/
@@ -44,7 +44,7 @@ Zdrojem jsou informativní počty obyvatel, které zveřejňuje Ministerstvo vni
 | `koef_obcane` | podíl občanů z registru MV, kteří v MČ podle Sčítání 2021 opravdu bydlí | MČ |
 | `obcane_celkem`, `obcane_muzi`, `obcane_zeny` | občané ČR s trvalým pobytem | obě |
 | `cizinci_celkem`, `cizinci_muzi`, `cizinci_zeny` | cizinci s trvalým nebo přechodným pobytem nad 90 dní | obě |
-| `cizinci_trvaly_pobyt`, `cizinci_prechodny_pobyt` | cizinci podle typu pobytu | obě |
+| `cizinci_trvaly_pobyt`, `cizinci_prechodny_pobyt` | cizinci podle typu pobytu (od 2013, dřív prázdné) | obě |
 | `cizinci_docasna_ochrana` | z toho lidé s dočasnou ochranou (od 2023, do 2022 nula) | obě |
 
 **Jak se sloupce sčítají:**
@@ -77,6 +77,11 @@ a u 97–98 % obcí o méně než 1 %. Podrobnosti jsou v
 [analyza/POROVNANI_CSU.md](analyza/POROVNANI_CSU.md). Jakmile ČSÚ data zveřejní,
 `odhad_csu` = `obyvatele_csu`.
 
+**Ani ČSÚ není mezi sčítáními přesný.** Podle Sčítání 2021 dopočet ČSÚ za léta
+2011–2021 nadhodnotil ČR o 2 % (Prahu o 6 %). Odhad z dat MV s koeficientem ze sčítání
+je za deset let stejně přesný jako ČSÚ samo, viz
+[analyza/SCITANI.md](analyza/SCITANI.md).
+
 **Městské části:** ČSÚ roční počty obyvatel MČ nevydává, proto se použije Sčítání 2021
 (sada [SLDZOB01](https://data.csu.gov.cz/datastat/info/SADA/SLDZOB01), obyvatelé
 s obvyklým pobytem, uložené v `ciselniky/scitani_2021_mc.csv`):
@@ -95,6 +100,15 @@ od sebe rozlišit nejde. Koeficient nad 1 mají MČ, kde bydlí
 lidé s trvalým pobytem jinde. U MČ bez údaje ze sčítání se použije koeficient města.
 
 ## Na co si dát pozor
+
+- **Roky 2004–2013 jsou ze starších souborů MV** v jiných formátech, jednorázově očištěných
+  skriptem [`historie.py`](historie.py) (viz [Starší roky](#starší-roky-20042013)).
+  Cizinci podle typu pobytu jsou až od 2013, MČ od 2007 (2007 jen Praha).
+- **Cizinci 2004 nejsou úplní.** MV je do evidence zaváděl postupně (nejdřív ty s rodným
+  číslem), k 1. 1. 2004 jich je v datech jen 53 tis., o rok později 263 tis. Nižší číslo
+  neznamená, že tehdy cizinců bylo méně.
+- **Cizinci 2013** jsou z jiného zdroje (Ředitelství služby cizinecké policie) a proti 2012
+  klesli o 45 tis.; meziroční srovnání cizinců přes rok 2013 ber s rezervou.
 
 - **Nejde o oficiální počet obyvatel ČSÚ.** MV započítává cizince s trvalým i přechodným
   pobytem nad 90 dní, proto jsou čísla vyšší.
@@ -184,6 +198,8 @@ v souboru MV, kód obce) a spusť zpracování znovu.
 | `mestske_casti.py` | tabulka městských částí |
 | `kontrola.py` | přehled kontrol `vystup/kontrola.html` a souhrn pro PR |
 | `web.py` | sestavení webu pro GitHub Pages do `_site/` |
+| `historie.py` | jednorázové očištění starších souborů MV (2004–2013) do `historie/` |
+| `historie/` | očištěné roky 2004–2013 (obce, MČ, kontrolní součty, párování obcí 2004–2006) |
 | `ciselniky/pscoco.csv`, `cnumnuts.csv` | číselník obcí s okresy a kraji (volby.gov.cz) |
 | `ciselniky/rucni_parovani.csv` | ruční přiřazení obcí, které se nespárují automaticky |
 | `ciselniky/docasna_ochrana_snimky.csv` | ke kterému dni je použitý snímek dočasné ochrany za každý rok |
@@ -191,6 +207,35 @@ v souboru MV, kód obce) a spusť zpracování znovu.
 | `data/` | stažené soubory MV (není v repozitáři) |
 
 ## Jak se data zpracovávají
+
+### Starší roky 2004–2013
+
+Soubory MV před rokem 2014 mají čtyři formáty a nové už nevzniknou, proto je
+[`historie.py`](historie.py) jednorázově převede do `historie/` a `zpracuj_data.py` je jen
+připojí. Znovu ho stačí spustit jen při opravě (`python historie.py`).
+
+| Roky | Formát | Jak se zpracuje |
+|---|---|---|
+| 2004–2006 | okres + název obce velkými písmeny, bez kódu; velká města po MČ, Praha po částech | kód obce se dohledá podle názvu (viz níže), MČ se sečtou za město |
+| 2007 | kód obce, občané ČR, občané EU, cizinci | přímo; MČ jen Praha |
+| 2008–2012 | navíc počty osob 15+ | přímo; MČ všech 8 měst |
+| 2013 | občané jako od 2014, cizinci zvlášť po obcích a MČ, poprvé podle typu pobytu | přímo |
+
+**Párování 2004–2006:** obce se mezitím přesouvaly mezi okresy (2005 z Vysočiny do
+Jihomoravského kraje, úpravy okresů 2007 a 2021), některé se přejmenovaly nebo zanikly.
+Kód se hledá nejdřív podle okresu a názvu, pak podle názvu v celé ČR (aktuální číselník,
+soubory MV 2007–2012 a názvy ČSÚ včetně zaniklých obcí). Mezi stejnojmennými obcemi
+rozhodne velikost podle ČSÚ téhož roku. Zbytek řeší
+[`historie/rucni_parovani_2004_2006.csv`](historie/rucni_parovani_2004_2006.csv), způsob
+párování každého řádku je v `historie/parovani_2004_2006.csv`. Nespárovaní zůstali jen
+3 cizinci v roce 2005, součty jinak sedí na řádky „Celkem“ v souborech MV
+(`historie/kontrola_2004_2013.csv`).
+
+**Co starší soubory mají navíc** (v `historie/obce_2004_2013.csv`, v hlavní tabulce zatím
+nejsou): počet osob 15+ u občanů i cizinců (2008–2013) a počet občanů EU mezi cizinci
+(2007–2012).
+
+### Roky 2014+
 
 - **Občané** mají v souborech MV kód obce i kód MČ, berou se přímo.
 - **Cizinci 2014–2021** mají kód obce. Od roku 2022 ho nemají a obec se dohledá podle

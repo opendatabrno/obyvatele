@@ -10,7 +10,7 @@ import re
 
 import pandas as pd
 
-from zpracuj_data import (CISELNE, CISELNIKY, PRAHA, VYSTUP, cislo, je_kod_obce, klic, nacti_excel,
+from zpracuj_data import (CISELNE, CISELNIKY, PRAHA, ROOT, VYSTUP, cislo, je_kod_obce, klic, nacti_excel,
                           nacti_rok, norm, sloupce_cizincu, sloupec_docasne_ochrany, tabulka_cizincu_novy)
 
 NEZJISTENO = "nezjištěno"
@@ -261,7 +261,15 @@ def zpracuj_mc(soubory, obce, docasna):
         t.insert(0, "rok", rok)
         radky.append(t)
 
+    # roky 2007–2013 ze složky historie/ (historie.py); 2007 jen Praha
+    cesta = ROOT / "historie" / "mestske_casti_2007_2013.csv"
+    if cesta.exists():
+        h = pd.read_csv(cesta)
+        h = h[~h.rok.isin(set(soubory))].assign(cizinci_docasna_ochrana=0)
+        radky.insert(0, h)
     vysledek = pd.concat(radky, ignore_index=True)
+    cisla = [c for c in vysledek.columns if c.startswith(("obcane_", "cizinci_"))]
+    vysledek[cisla] = vysledek[cisla].astype("Int64")
     vysledek["kod_mc"] = vysledek.kod_mc.astype("Int64")
     nazvy = obce.drop_duplicates("kod_obce").set_index("kod_obce").nazev_obce
     vysledek.insert(2, "nazev_obce", vysledek.kod_obce.map(nazvy))
